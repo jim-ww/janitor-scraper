@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -27,6 +28,8 @@ var (
 	logRequests  = flag.Bool("log-requests", false, "log requests")
 	address      = flag.String("address", "localhost:8080", "address to listen on (used only if served locally)")
 	format       = flag.String("format", "plain", "messages output format: plain/json")
+	noColor      = flag.Bool("no-color", false, "disable colored output")
+	filePath     = flag.String("filepath", "", "if specified, messages will be saved to this file. example: /path/to/file.json")
 )
 
 func main() {
@@ -81,35 +84,61 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if *format == "json" {
-		if err := json.NewEncoder(os.Stdout).Encode(req.Messages); err != nil {
-			slog.Error("Error encoding messages to JSON", "err", err)
+	wr := os.Stdout
+	if *filePath != "" {
+		if _, err := os.Stat(*filePath); err == nil {
+			slog.Error("File already exists", "file-path", *filePath)
+			return
 		}
+		file, err := os.Create(*filePath)
+		if err != nil {
+			slog.Error("Error creating file", "err", err)
+			return
+		}
+		defer file.Close()
+		wr = file
+	}
+
+	if *format == "json" {
+		if err := json.NewEncoder(wr).Encode(req.Messages); err != nil {
+			slog.Error("Error encoding messages to JSON", "err", err)
+			return
+		}
+		fmt.Println("Messages written to file.")
 		return
 	}
 
-	fmt.Println("\n" + strings.Repeat("═", 80))
-	fmt.Println("💬 CHAT")
-	fmt.Println(strings.Repeat("═", 80))
+	fmt.Fprintln(wr, "\n"+strings.Repeat("═", 80))
+	fmt.Fprintln(wr, "💬 CHAT")
+	fmt.Fprintln(wr, strings.Repeat("═", 80))
 
 	for i, msg := range req.Messages {
-		fmt.Printf("\n%s. ", getRoleEmoji(msg.Role))
-		printMessage(msg, i)
+		fmt.Fprintf(wr, "\n%s ", getRoleEmoji(msg.Role))
+		colorEnabled := !*noColor && *filePath == ""
+		printMessage(wr, msg, i, colorEnabled)
 	}
 
 	fmt.Println(strings.Repeat("═", 80) + "\n")
 }
 
-func printMessage(msg Message, index int) {
+func printMessage(wr io.Writer, msg Message, index int, colorEnabled bool) {
 	roleDisplay := strings.ToUpper(msg.Role)
 
-	fmt.Printf("\x1b[1m%s\x1b[0m ", roleDisplay)
-	fmt.Printf("(\x1b[90m%d\x1b[0m):\n", index+1)
+	if colorEnabled {
+		fmt.Fprintf(wr, "\x1b[1m%s\x1b[0m ", roleDisplay)
+		fmt.Fprintf(wr, "(\x1b[90m%d\x1b[0m):\n", index+1)
+	} else {
+		fmt.Fprintf(wr, "%s (%d):\n", roleDisplay, index+1)
+	}
 
 	content := strings.TrimSpace(msg.Content)
 	content = strings.ReplaceAll(content, "\\n", "\n")
 
-	fmt.Printf("\x1b[97m%s\x1b[0m\n", formatText(content, 70))
+	if colorEnabled {
+		fmt.Fprintf(wr, "\x1b[97m%s\x1b[0m\n", formatText(content, 70))
+	} else {
+		fmt.Fprintf(wr, "%s\n", formatText(content, 70))
+	}
 }
 
 func formatText(text string, maxWidth int) string {
