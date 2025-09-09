@@ -26,6 +26,7 @@ var (
 	serveLocally = flag.Bool("local", false, "serve locally, instead of using ngrok")
 	logRequests  = flag.Bool("log-requests", false, "log requests")
 	address      = flag.String("address", "localhost:8080", "address to listen on (used only if served locally)")
+	format       = flag.String("format", "plain", "messages output format: plain/json")
 )
 
 func main() {
@@ -77,6 +78,13 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	if len(req.Messages) == 0 {
 		slog.Error("No messages found in request")
+		return
+	}
+
+	if *format == "json" {
+		if err := json.NewEncoder(os.Stdout).Encode(req.Messages); err != nil {
+			slog.Error("Error encoding messages to JSON", "err", err)
+		}
 		return
 	}
 
