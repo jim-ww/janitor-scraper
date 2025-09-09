@@ -24,6 +24,7 @@ type Message struct {
 
 var (
 	serveLocally = flag.Bool("local", false, "serve locally, instead of using ngrok")
+	logRequests  = flag.Bool("log-requests", false, "log requests")
 	address      = flag.String("address", "localhost:8080", "address to listen on (used only if served locally)")
 )
 
@@ -31,7 +32,11 @@ func main() {
 	flag.Parse()
 
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+
+	if *logRequests {
+		r.Use(middleware.Logger)
+	}
+
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"https://*", "http://*"},
 		AllowedMethods: []string{"POST", "OPTIONS"},
