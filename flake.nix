@@ -15,9 +15,10 @@
       systems = flake-utils.lib.defaultSystems;
       perSystem = {pkgs, ...}: {
         packages.default = pkgs.buildGoModule {
-          version = "1.0";
+          name = "janitor-scraper";
+          version = "1.1.1";
           src = pkgs.lib.cleanSource ./.;
-          vendorHash = "sha256-D3sraCsi7VF//q7K4ZWw9JEEbQ3Cs94SYkTf9nQ4NW8=";
+          vendorHash = "sha256-4VfMBmyE2vrhWxZoCRk2avM+iZXKJKsM/J/b7rOO0qo=";
         };
       };
     };
