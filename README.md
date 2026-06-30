@@ -24,6 +24,14 @@ export NGROK_AUTHTOKEN=your_token_here
 set NGROK_AUTHTOKEN=your_token_here
 janitor-scraper.exe
 
+# Or, install with Go
+go install github.com/jim-ww/janitor-scraper@latest
+export NGROK_AUTHTOKEN=your_token_here
+janitor-scraper
+
+# Or, run with Nix
+export NGROK_AUTHTOKEN=your_token_here
+nix run github:jim-ww/janitor-scraper
 ```
 
 ### 4. Set Up Janitor AI
@@ -66,3 +74,19 @@ Linux is the kernel: the program in the system that allocates the machine’s re
 ────────────────────────────────────────────────────────────────────────────────
 
 ```
+
+## Support the Project
+
+If janitor-scraper saves you time, consider a small donation:
+
+**Monero (XMR)**
+```
+83YGRqP8uHed6NeegZQeX9ccCxbzoRHHEEi7pTwk4aqdJZEVXXA6NWtetnsEM2v33zFBBt3Rp6DNhU9qhJEGPspU14yN8t7
+```
+
+---
+
+## License
+
+Licensed under the [GNU General Public License v3 (GPLv3)](./LICENSE).
+Free to use, study, share, and modify — provided you keep the same freedoms for others.
