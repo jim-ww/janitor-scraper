@@ -11,10 +11,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"golang.ngrok.com/ngrok/v2"
 )
 
@@ -25,47 +23,45 @@ type Message struct {
 
 var (
 	serveLocally = flag.Bool("local", false, "serve locally, instead of using ngrok")
-	logRequests  = flag.Bool("log-requests", false, "log requests")
+	verbose      = flag.Bool("v", false, "verbose output")
 	address      = flag.String("address", "localhost:8080", "address to listen on (used only if served locally)")
 	format       = flag.String("format", "plain", "messages output format: plain/json")
 	noColor      = flag.Bool("no-color", false, "disable colored output")
 	filePath     = flag.String("filepath", "", "if specified, messages will be saved to this file. example: /path/to/file.json")
+	enableCors   = flag.Bool("cors", true, "enable CORS middleware")
 )
 
 func main() {
 	flag.Parse()
 
-	r := chi.NewRouter()
+	var handler http.Handler = http.HandlerFunc(handleChatCompletions)
 
-	if *logRequests {
-		r.Use(middleware.Logger)
+	if *verbose {
+		handler = loggingMiddleware(handler)
+	}
+	if *enableCors {
+		handler = corsMiddleware(handler)
 	}
 
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"https://*", "http://*"},
-		AllowedMethods: []string{"POST", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type"},
-	}))
-
-	r.Post("/v1/chat/completions", handleChatCompletions)
+	http.Handle("/v1/chat/completions", handler)
 
 	if *serveLocally {
 		fmt.Println("Server is listening on: ", *address)
-		log.Fatal(http.ListenAndServe(*address, r))
-	} else {
-		// else serve with ngrok
-		if os.Getenv("NGROK_AUTHTOKEN") == "" {
-			log.Fatal("NGROK_AUTHTOKEN environment variable is not set. Please set it to your ngrok authtoken. You can obtain an authtoken from https://dashboard.ngrok.com/get-started/your-authtoken")
-		}
-
-		l, err := ngrok.Listen(context.Background(), ngrok.WithURL(os.Getenv("NGROK_RESERVED_URL")))
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println("Server is listening on: ", l.Addr())
-		log.Fatal(http.Serve(l, r))
+		log.Fatal(http.ListenAndServe(*address, nil))
 	}
+
+	// serve with ngrok
+	if os.Getenv("NGROK_AUTHTOKEN") == "" {
+		log.Fatal("NGROK_AUTHTOKEN environment variable is not set. Please set it to your ngrok authtoken. You can obtain an authtoken from https://dashboard.ngrok.com/get-started/your-authtoken")
+	}
+
+	l, err := ngrok.Listen(context.Background(), ngrok.WithURL(os.Getenv("NGROK_RESERVED_URL")))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Server is listening on: ", l.Addr())
+	log.Fatal(http.Serve(l, nil))
 }
 
 func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -174,4 +170,25 @@ func getRoleEmoji(role string) string {
 	default:
 		return "❓"
 	}
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		log.Printf("%s %s %v", r.Method, r.RequestURI, time.Since(start))
+	})
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*") // or specific origins
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

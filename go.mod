@@ -2,11 +2,7 @@ module github.com/jim-ww/janitor-scraper
 
 go 1.25.0
 
-require (
-	github.com/go-chi/chi/v5 v5.2.3
-	github.com/go-chi/cors v1.2.2
-	golang.ngrok.com/ngrok/v2 v2.1.0
-)
+require golang.ngrok.com/ngrok/v2 v2.1.0
 
 require (
 	github.com/jpillora/backoff v1.0.0 // indirect
